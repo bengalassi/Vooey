@@ -50,9 +50,7 @@ ui <- fluidPage(
           tableOutput("filtered_by_keyword_table")
         ),
         tabPanel(
-          "N-Grams",
-          textInput("cooccurring_term",label="Enter term:"),
-          tableOutput("cooccurance_matrix")
+          "N-Grams"
         )
       )
     )
@@ -63,7 +61,7 @@ server <- function(input,output){
   
   udmodel_download <- udpipe_download_model(language = "english")
   udmodel <- udpipe_load_model(file = udmodel_download$file_model)
-
+  
   tagged_pos_table <- reactive({
     text_entry_character_vector <- unlist(strsplit(input$text_entry, "(?<=[[:punct:]])\\s(?=[A-Z])", perl=T))
     x <- udpipe_annotate(udmodel,text_entry_character_vector)
@@ -74,9 +72,9 @@ server <- function(input,output){
   })
   
   filter_by_pos_nouns <- reactive({
-      nouns_only <- tagged_pos_table() %>% 
-        filter(upos=="NOUN") %>%
-        select(token)
+    nouns_only <- tagged_pos_table() %>% 
+      filter(upos=="NOUN") %>%
+      select(token)
     return(unique(nouns_only$token))
   })
   
@@ -126,7 +124,7 @@ server <- function(input,output){
     names(freq_frame) <- c("question","term","term_frequency")
     freq_frame <- datatable(freq_frame, options = list(searchHighlight = TRUE),rownames=FALSE)
     return(freq_frame)
-    })
+  })
   
   create_wordcloud <- reactive({
     themes_source <- VectorSource(input$text_entry)
@@ -158,13 +156,12 @@ server <- function(input,output){
         filter(term %in% filter_by_pos_adjectives())
     }
     cloud <- wordcloud(words = freq_frame$term, freq = freq_frame$term_frequency, min.freq = 1,
-              max.words=200, random.order=FALSE, rot.per=0.35)
+                       max.words=200, random.order=FALSE, rot.per=0.35)
     return(cloud)
   })
-
+  
   calculate_sentiment <- reactive({
     sentences <- get_sentences(tolower(input$text_entry))
-    #gsub('[[:punct:] ]+',' ',sentences)
     sentence_sentiment <- sentiment(sentences)
     sent_frame <- data.frame(input$vooeys_question,sentences,sentence_sentiment$sentiment)
     names(sent_frame) <- c("question","sentence","sentiment")
@@ -172,15 +169,19 @@ server <- function(input,output){
     return(sent_frame)
   })
   
+  calculate_sentiment_dataDotFrame <- reactive({
+    sentences <- get_sentences(tolower(input$text_entry))
+    sentence_sentiment <- sentiment(sentences)
+    sent_frame <- data.frame(input$vooeys_question,sentences,sentence_sentiment$sentiment)
+    names(sent_frame) <- c("question","sentence","sentiment")
+    return(sent_frame)
+  })
+  
   filter_by_keyword <- reactive({
-    filtered_by_keyword_table <- calculate_sentiment() %>% 
+    filtered_by_keyword_table <-   calculate_sentiment_dataDotFrame() %>% 
       filter(grepl(input$keyword,sentence)) %>% 
       summarize(average_sentiment = mean(sentiment))
     return(filtered_by_keyword_table)
-  })
-  
-  calculate_cooccurrence <- reactive({
-      #Finish this
   })
   
   
@@ -191,7 +192,6 @@ server <- function(input,output){
   output$pos_debug1 <- renderPrint(filter_by_pos_nouns())
   output$pos_debug2 <- renderPrint(filter_by_pos_verbs())
   output$pos_debug3 <- renderPrint(filter_by_pos_adjectives())
-  output$cooccurance_matrix <- renderTable(calculate_cooccurrence())
 }
 
 
